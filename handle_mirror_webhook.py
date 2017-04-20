@@ -58,13 +58,17 @@ def sync_repos():
         print('pushing to %s' % LOCAL_GIT_REPO_PATH)
         repo.push(LOCAL_GIT_REPO_PATH)
 
-    with git.Repo(LOCAL_GIT_REPO_PATH) as repo:
+    # we need to do this dance with a temporary repo due to issues with pushing
+    # over https with a bare repo
+    tmpdir = tempfile.mkdtemp()
+    with git.Repo.init(tmpdir, bare=False) as repo:
+        origin = repo.create_remote('origin', LOCAL_GH_REPO_PATH)
+        upstream = repo.create_remote('upstream', GH_REPO)
         for git_branch in GIT_BRANCH_MAP.values():
-            print('pushing to %s from %s on branch %s' % (
-                GH_REPO, LOCAL_GIT_REPO_PATH, git_branch))
-            repo.remotes.origin.push(git_branch)
-        print('pushing tags to %s from %s' % (GH_REPO, LOCAL_GIT_REPO_PATH))
-        repo.remotes.origin.push(tags=True)
+            origin.pull(git_branch)
+            upstream.push(git_branch)
+        upstream.push(tags=True)
+    shutil.rmtree(tmpdir)
     print('Done!')
 
 
